@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>并发处理演示系统</title>
+    <!-- Bootstrap 5.3.2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .card-hover {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .result-card {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .status-success {
+            color: #28a745;
+        }
+        .status-error {
+            color: #dc3545;
+        }
+        .progress-container {
+            position: relative;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg gradient-bg text-white shadow-lg">
+        <div class="container">
+            <a class="navbar-brand text-white fw-bold" href="#">
+                <i class="fas fa-bolt me-2"></i>并发处理演示
+            </a>
+            <div class="navbar-nav ms-auto">
+                <span class="nav-link text-white">
+                    <span id="server-status">连接中...</span>
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 py-8">
+        <!-- 功能选择卡片 -->
+        <div class="row g-4 mb-5">
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm card-hover">
+                    <div class="card-body text-center">
+                        <div class="mb-3">
+                            <i class="fas fa-shopping-cart fa-3x text-primary"></i>
+                        </div>
+                        <h5 class="card-title">批量订单处理</h5>
+                        <p class="card-text text-muted">并发处理多个订单，模拟电商系统的订单批量处理场景</p>
+                        <button class="btn btn-primary" onclick="showSection('orders')">
+                            <i class="fas fa-play me-2"></i>开始演示
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm card-hover">
+                    <div class="card-body text-center">
+                        <div class="mb-3">
+                            <i class="fas fa-network-wired fa-3x text-success"></i>
+                        </div>
+                        <h5 class="card-title">API批量调用</h5>
+                        <p class="card-text text-muted">同时调用多个外部API服务，展示并发网络请求处理</p>
+                        <button class="btn btn-success" onclick="showSection('api-calls')">
+                            <i class="fas fa-play me-2"></i>开始演示
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm card-hover">
+                    <div class="card-body text-center">
+                        <div class="mb-3">
+                            <i class="fas fa-file-alt fa-3x text-warning"></i>
+                        </div>
+                        <h5 class="card-title">文件批量处理</h5>
+                        <p class="card-text text-muted">并发处理多个文件，包括上传、分析、转换等操作</p>
+                        <button class="btn btn-warning" onclick="showSection('files')">
+                            <i class="fas fa-play me-2"></i>开始演示
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 订单处理部分 -->
+        <div id="orders-section" class="demo-section" style="display: none;">
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0"><i class="fas fa-shopping-cart me-2"></i>批量订单处理</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label">生成订单数量:</label>
+                                <input type="number" id="order-count" class="form-control" value="10" min="1" max="1000">
+                            </div>
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-outline-primary" onclick="generateOrders()">
+                                    <i class="fas fa-plus me-2"></i>生成测试订单
+                                </button>
+                                <button class="btn btn-primary" onclick="processOrders()">
+                                    <i class="fas fa-cogs me-2"></i>批量处理订单
+                                </button>
+                            </div>
+                            <div id="order-progress" class="progress-container" style="display: none;">
+                                <div class="progress">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                         role="progressbar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-secondary text-white">
+                            <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>处理结果</h5>
+                        </div>
+                        <div class="card-body result-card" id="order-results">
+                            <p class="text-muted text-center">请先生成订单并开始处理</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- API调用部分 -->
+        <div id="api-calls-section" class="demo-section" style="display: none;">
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0"><i class="fas fa-network-wired me-2"></i>API批量调用</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label">API调用数量:</label>
+                                <input type="number" id="api-count" class="form-control" value="5" min="1" max="50">
+                            </div>
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-outline-success" onclick="generateAPIs()">
+                                    <i class="fas fa-plus me-2"></i>生成API列表
+                                </button>
+                                <button class="btn btn-success" onclick="callAPIs()">
+                                    <i class="fas fa-rocket me-2"></i>批量调用API
+                                </button>
+                            </div>
+                            <div id="api-progress" class="progress-container" style="display: none;">
+                                <div class="progress">
+                                    <div class="progress-bar bg-success progress-bar-striped progress-bar-animated" 
+                                         role="progressbar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-secondary text-white">
+                            <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>调用结果</h5>
+                        </div>
+                        <div class="card-body result-card" id="api-results">
+                            <p class="text-muted text-center">请先生成API列表并开始调用</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 文件处理部分 -->
+        <div id="files-section" class="demo-section" style="display: none;">
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-warning text-dark">
+                            <h5 class="mb-0"><i class="fas fa-file-alt me-2"></i>文件批量处理</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label">选择文件:</label>
+                                <input type="file" id="file-input" class="form-control" multiple>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">处理类型:</label>
+                                <select id="process-type" class="form-select">
+                                    <option value="info">获取文件信息</option>
+                                    <option value="copy">复制文件</option>
+                                    <option value="compress">压缩处理</option>
+                                </select>
+                            </div>
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-outline-warning" onclick="uploadFiles()">
+                                    <i class="fas fa-upload me-2"></i>上传文件
+                                </button>
+                                <button class="btn btn-outline-info" onclick="listFiles()">
+                                    <i class="fas fa-list me-2"></i>查看已上传文件
+                                </button>
+                                <button class="btn btn-warning" onclick="processFiles()">
+                                    <i class="fas fa-cogs me-2"></i>批量处理文件
+                                </button>
+                            </div>
+                            <div id="file-progress" class="progress-container" style="display: none;">
+                                <div class="progress">
+                                    <div class="progress-bar bg-warning progress-bar-striped progress-bar-animated" 
+                                         role="progressbar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-secondary text-white">
+                            <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>处理结果</h5>
+                        </div>
+                        <div class="card-body result-card" id="file-results">
+                            <p class="text-muted text-center">请先上传文件并开始处理</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 统计图表 -->
+        <div class="row mt-5">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>性能统计</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="performance-chart" width="400" height="100"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // 全局变量
+        let currentOrders = [];
+        let currentAPIs = [];
+        let currentFiles = [];
+        let performanceChart = null;
+        let performanceData = [];
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            checkServerStatus();
+            initChart();
+            showSection('orders'); // 默认显示订单处理
+        });
+
+        // 检查服务器状态
+        function checkServerStatus() {
+            fetch('/api/health')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('server-status').innerHTML = 
+                        '<i class="fas fa-check-circle me-1"></i>服务正常';
+                    document.getElementById('server-status').className = 'nav-link text-success';
+                })
+                .catch(error => {
+                    document.getElementById('server-status').innerHTML = 
+                        '<i class="fas fa-exclamation-triangle me-1"></i>连接失败';
+                    document.getElementById('server-status').className = 'nav-link text-danger';
+                });
+        }
+
+        // 显示指定部分
+        function showSection(section) {
+            // 隐藏所有部分
+            document.querySelectorAll('.demo-section').forEach(s => s.style.display = 'none');
+            // 显示指定部分
+            document.getElementById(section + '-section').style.display = 'block';
+        }
+
+        // 显示加载状态
+        function showLoading(elementId, show = true) {
+            const element = document.getElementById(elementId);
+            if (show) {
+                element.classList.add('loading');
+            } else {
+                element.classList.remove('loading');
+            }
+        }
+
+        // 显示进度条
+        function showProgress(progressId, show = true) {
+            const progressContainer = document.getElementById(progressId);
+            if (show) {
+                progressContainer.style.display = 'block';
+                const progressBar = progressContainer.querySelector('.progress-bar');
+                progressBar.style.width = '0%';
+                // 模拟进度
+                let progress = 0;
+                const interval = setInterval(() => {
+                    progress += Math.random() * 30;
+                    if (progress >= 100) {
+                        progress = 100;
+                        clearInterval(interval);
+                    }
+                    progressBar.style.width = progress + '%';
+                }, 500);
+            } else {
+                progressContainer.style.display = 'none';
+            }
+        }
+
+        // 生成订单
+        function generateOrders() {
+            const count = document.getElementById('order-count').value;
+            
+            showLoading('orders-section');
+            
+            fetch('/api/orders/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ count: parseInt(count) })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentOrders = data.data;
+                    displayMessage('order-results', `成功生成 ${currentOrders.length} 个订单`, 'success');
+                } else {
+                    displayMessage('order-results', '生成订单失败: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                displayMessage('order-results', '请求失败: ' + error.message, 'error');
+            })
+            .finally(() => {
+                showLoading('orders-section', false);
+            });
+        }
+
+        // 处理订单
+        function processOrders() {
+            if (currentOrders.length === 0) {
+                displayMessage('order-results', '请先生成订单', 'error');
+                return;
+            }
+
+            showLoading('orders-section');
+            showProgress('order-progress');
+            
+            const startTime = Date.now();
+            
+            fetch('/api/orders/batch-process', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ orders: currentOrders })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const result = data.data;
+                    const duration = Date.now() - startTime;
+                    
+                    // 更新性能图表
+                    updatePerformanceChart('订单处理', result.total_tasks, result.success_tasks, duration);
+                    
+                    // 显示结果
+                    displayBatchResult('order-results', result, '订单');
+                } else {
+                    displayMessage('order-results', '处理失败: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                displayMessage('order-results', '请求失败: ' + error.message, 'error');
+            })
+            .finally(() => {
+                showLoading('orders-section', false);
+                showProgress('order-progress', false);
+            });
+        }
+
+        // 生成API列表
+        function generateAPIs() {
+            const count = document.getElementById('api-count').value;
+            
+            showLoading('api-calls-section');
+            
+            fetch('/api/api-calls/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ count: parseInt(count) })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentAPIs = data.data;
+                    displayMessage('api-results', `成功生成 ${currentAPIs.length} 个API调用`, 'success');
+                } else {
+                    displayMessage('api-results', '生成API列表失败: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                displayMessage('api-results', '请求失败: ' + error.message, 'error');
+            })
+            .finally(() => {
+                showLoading('api-calls-section', false);
+            });
+        }
+
+        // 调用API
+        function callAPIs() {
+            if (currentAPIs.length === 0) {
+                displayMessage('api-results', '请先生成API列表', 'error');
+                return;
+            }
+
+            showLoading('api-calls-section');
+            showProgress('api-progress');
+            
+            const startTime = Date.now();
+            
+            fetch('/api/api-calls/batch-call', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ apis: currentAPIs })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const result = data.data;
+                    const duration = Date.now() - startTime;
+                    
+                    // 更新性能图表
+                    updatePerformanceChart('API调用', result.total_tasks, result.success_tasks, duration);
+                    
+                    // 显示结果
+                    displayBatchResult('api-results', result, 'API');
+                } else {
+                    displayMessage('api-results', '调用失败: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                displayMessage('api-results', '请求失败: ' + error.message, 'error');
+            })
+            .finally(() => {
+                showLoading('api-calls-section', false);
+                showProgress('api-progress', false);
+            });
+        }
+
+        // 上传文件
+        function uploadFiles() {
+            const fileInput = document.getElementById('file-input');
+            const files = fileInput.files;
+            
+            if (files.length === 0) {
+                displayMessage('file-results', '请选择文件', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            for (let i = 0; i < files.length; i++) {
+                formData.append('files', files[i]);
+            }
+
+            showLoading('files-section');
+            
+            fetch('/api/files/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayMessage('file-results', `成功上传 ${data.data.length} 个文件`, 'success');
+                    // 自动获取文件列表
+                    setTimeout(listFiles, 1000);
+                } else {
+                    displayMessage('file-results', '上传失败: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                displayMessage('file-results', '请求失败: ' + error.message, 'error');
+            })
+            .finally(() => {
+                showLoading('files-section', false);
+            });
+        }
+
+        // 列出文件
+        function listFiles() {
+            showLoading('files-section');
+            
+            fetch('/api/files/list')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentFiles = data.data;
+                    displayMessage('file-results', `找到 ${currentFiles.length} 个文件`, 'success');
+                } else {
+                    displayMessage('file-results', '获取文件列表失败: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                displayMessage('file-results', '请求失败: ' + error.message, 'error');
+            })
+            .finally(() => {
+                showLoading('files-section', false);
+            });
+        }
+
+        // 处理文件
+        function processFiles() {
+            if (currentFiles.length === 0) {
+                displayMessage('file-results', '没有可处理的文件，请先上传文件', 'error');
+                return;
+            }
+
+            const processType = document.getElementById('process-type').value;
+            const fileTasks = currentFiles.map(file => ({
+                id: file.id,
+                file_path: file.file_path,
+                file_name: file.file_name,
+                process_type: processType
+            }));
+
+            showLoading('files-section');
+            showProgress('file-progress');
+            
+            const startTime = Date.now();
+            
+            fetch('/api/files/batch-process', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ files: fileTasks })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const result = data.data;
+                    const duration = Date.now() - startTime;
+                    
+                    // 更新性能图表
+                    updatePerformanceChart('文件处理', result.total_tasks, result.success_tasks, duration);
+                    
+                    // 显示结果
+                    displayBatchResult('file-results', result, '文件');
+                } else {
+                    displayMessage('file-results', '处理失败: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                displayMessage('file-results', '请求失败: ' + error.message, 'error');
+            })
+            .finally(() => {
+                showLoading('files-section', false);
+                showProgress('file-progress', false);
+            });
+        }
+
+        // 显示消息
+        function displayMessage(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const className = type === 'success' ? 'text-success' : type === 'error' ? 'text-danger' : 'text-info';
+            element.innerHTML = `<p class="${className}"><i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'times' : 'info'}-circle me-2"></i>${message}</p>`;
+        }
+
+        // 显示批量处理结果
+        function displayBatchResult(elementId, result, taskType) {
+            const element = document.getElementById(elementId);
+            const successRate = ((result.success_tasks / result.total_tasks) * 100).toFixed(1);
+            
+            let html = `
+                <div class="mb-3">
+                    <h6 class="text-primary">${taskType}处理统计</h6>
+                    <div class="row text-center">
+                        <div class="col-3">
+                            <div class="text-muted small">总数</div>
+                            <div class="h5">${result.total_tasks}</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="text-muted small">成功</div>
+                            <div class="h5 text-success">${result.success_tasks}</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="text-muted small">失败</div>
+                            <div class="h5 text-danger">${result.failed_tasks}</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="text-muted small">成功率</div>
+                            <div class="h5 text-info">${successRate}%</div>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">处理时间: ${result.duration}ms</small>
+                    </div>
+                </div>
+                <div class="progress mb-3">
+                    <div class="progress-bar bg-success" style="width: ${successRate}%"></div>
+                    <div class="progress-bar bg-danger" style="width: ${100-successRate}%"></div>
+                </div>
+            `;
+
+            if (result.results && result.results.length > 0) {
+                html += `<div class="mt-3"><h6>详细结果</h6><div class="list-group">`;
+                result.results.slice(0, 10).forEach(item => {
+                    const statusClass = item.success ? 'text-success' : 'text-danger';
+                    const icon = item.success ? 'check' : 'times';
+                    html += `
+                        <div class="list-group-item list-group-item-action">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span><i class="fas fa-${icon} ${statusClass} me-2"></i>${taskType} ${item.id}</span>
+                                <small class="text-muted">${item.duration}ms</small>
+                            </div>
+                            ${item.error ? `<small class="text-danger">${item.error}</small>` : ''}
+                        </div>
+                    `;
+                });
+                if (result.results.length > 10) {
+                    html += `<div class="list-group-item text-muted text-center">... 还有 ${result.results.length - 10} 个结果</div>`;
+                }
+                html += `</div></div>`;
+            }
+
+            element.innerHTML = html;
+        }
+
+        // 初始化图表
+        function initChart() {
+            const ctx = document.getElementById('performance-chart').getContext('2d');
+            performanceChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '处理时间 (ms)',
+                        data: [],
+                        backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    }, {
+                        label: '成功率 (%)',
+                        data: [],
+                        backgroundColor: 'rgba(75, 192, 192, 0.5)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1,
+                        yAxisID: 'y1'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            position: 'left'
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            beginAtZero: true,
+                            max: 100,
+                            grid: {
+                                drawOnChartArea: false,
+                            },
+                        }
+                    }
+                }
+            });
+        }
+
+        // 更新性能图表
+        function updatePerformanceChart(taskType, totalTasks, successTasks, duration) {
+            const successRate = ((successTasks / totalTasks) * 100).toFixed(1);
+            const label = `${taskType} (${totalTasks}个)`;
+            
+            performanceChart.data.labels.push(label);
+            performanceChart.data.datasets[0].data.push(duration);
+            performanceChart.data.datasets[1].data.push(parseFloat(successRate));
+            
+            // 只保留最近5次记录
+            if (performanceChart.data.labels.length > 5) {
+                performanceChart.data.labels.shift();
+                performanceChart.data.datasets[0].data.shift();
+                performanceChart.data.datasets[1].data.shift();
+            }
+            
+            performanceChart.update();
+        }
+    </script>
+</body>
+</html>
