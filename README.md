@@ -29,7 +29,7 @@ web-app/
 
 ## 启动运行
 
-cd web-app/backend
+go run .
 air
 
 ## 技术栈
