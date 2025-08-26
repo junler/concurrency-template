@@ -1,13 +1,17 @@
 package main
 
 import (
-	"log"
-
 	"concurrency-web-app/backend/handlers"
+	_ "embed"
+	"log"
+	"net/http"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
+
+//go:embed frontend/index.html
+var indexHTML []byte
 
 func main() {
 	// 设置Gin模式
@@ -23,9 +27,10 @@ func main() {
 	config.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization"}
 	r.Use(cors.New(config))
 
-	// 静态文件服务
-	r.Static("/static", "./frontend")
-	r.StaticFile("/", "./frontend/index.html")
+	// 为根URL提供index.html
+	r.GET("/", func(c *gin.Context) {
+		c.Data(http.StatusOK, "text/html; charset=utf-8", indexHTML)
+	})
 
 	// 创建处理器
 	batchHandler := handlers.NewBatchHandler()
